@@ -26,10 +26,8 @@ from uuid import UUID
 import httpx
 import redis
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi import HTTPException
-from pydantic import BaseModel
-from pydantic import Field
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 
 from infrastructure import Storage
 
