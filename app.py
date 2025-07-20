@@ -20,13 +20,18 @@
 #    to see the interactive API documentation and test the endpoint.
 
 import os
+from datetime import datetime
+from uuid import UUID
 
 import httpx
+import redis
 from dotenv import load_dotenv
-from fastapi import Body
 from fastapi import FastAPI
 from fastapi import HTTPException
 from pydantic import BaseModel
+from pydantic import Field
+
+from infrastructure import Storage
 
 # Load environment variables from a .env file
 load_dotenv()
@@ -38,20 +43,28 @@ app = FastAPI(
     version="1.0.0",
 )
 
+redis_client = redis.Redis(host="localhost", port=6379, db=0)
+storage = Storage(redis_client)
+
 
 # --- Pydantic Models ---
 class CompanyResearchRequest(BaseModel):
     """Request model for the company research endpoint."""
 
-    company_name: str = Body(
-        ..., embed=True, description="The name of the company to research."
-    )
+    company_name: str = Field(description="The name of the company to research.")
+    token: UUID = Field(description="Token used to identify specific request.")
 
 
 class CompanyResearchResponse(BaseModel):
     """Response model for the company research endpoint."""
 
     report: str
+
+
+class QueryProgressResponse(BaseModel):
+    """Response model for the query progress endpoint."""
+
+    progress: str
 
 
 # --- Gemini API Configuration ---
@@ -110,6 +123,7 @@ async def research_company(request_body: CompanyResearchRequest):
 
     try:
         async with httpx.AsyncClient(timeout=90.0) as client:
+            storage.save_timestamp(request_body.token)
             response = await client.post(GEMINI_API_URL, json=payload)
             response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
@@ -137,6 +151,8 @@ async def research_company(request_body: CompanyResearchRequest):
         raise HTTPException(
             status_code=500, detail=f"An unexpected error occurred: {str(e)}"
         )
+    finally:
+        storage.end_token(request_body.token)
 
 
 # --- Root Endpoint for Health Check ---
@@ -146,4 +162,32 @@ async def read_root():
     return {"status": "API is running"}
 
 
-# To run this app, use the command: uvicorn app:app --reload
+@app.get(
+    "/progress/{token}",
+    response_model=QueryProgressResponse,
+    tags=["Query Progress"],
+    summary="Query Progress",
+    description="Uses query token to find out the progress of running query.",
+)
+async def progress(token: UUID):
+    """
+    Quick check of progress on given query. The progress is guessed based
+    """
+    if (beginning := storage.get_timestamp(token)) is None:
+        raise HTTPException(
+            status_code=500, detail=f"Query with such token doesn't exist: {token}"
+        )
+
+    mean_time: float = storage.get_query_mean_time()
+    moment = datetime.now().timestamp()
+
+    if beginning + mean_time > moment:
+        raise HTTPException(
+            status_code=202,
+            detail=f"The computation of query {token} is taking longer than usual, but it is in progress",
+        )
+
+    duration = moment - beginning
+    progress = 1 / mean_time * duration
+
+    return QueryProgressResponse(progress=str(progress))

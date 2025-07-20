@@ -11,6 +11,11 @@ python = "^3.12"
 fastapi = "^0.116.1"
 python-dotenv = "^1.1.1"
 httpx = "^0.28.1"
+pytest = "^8.4.1"
+requests = "^2.32.4"
+orjson = "^3.10.18"
+redis = "^6.2.0"
+pre-commit = "^4.2.0"
 
 
 [build-system]

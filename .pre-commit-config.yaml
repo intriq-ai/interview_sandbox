@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        additional_dependencies: ["toml"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        exclude: (alembic)
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.0
+    hooks:
+      - id: flake8
+        exclude: (alembic)
+        additional_dependencies: ["flake8-bugbear"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: debug-statements
+      - id: requirements-txt-fixer
+      - id: name-tests-test
+        args: [--pytest-test-first]
+      - id: check-yaml
